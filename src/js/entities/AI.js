@@ -40,7 +40,7 @@ export class AI extends Entity {
       const newPosition = this.position.clone().add(direction.clone().multiplyScalar(2));
       
       if (!this.wouldCollide(newPosition)) {
-        const distance = this.distanceToNearestObstacle(newPosition, direction);
+        const distance = this.distanceToNearestObstacle(newPosition);
         if (distance > maxDistance) {
           maxDistance = distance;
           bestDirection = direction;
@@ -52,13 +52,16 @@ export class AI extends Entity {
     this.direction.copy(bestDirection);
   }
   
+  // Using a simplified collision check for the decision-making algorithm
+  // eslint-disable-next-line no-unused-vars
   wouldCollide(position) {
     // This is a placeholder - actual collision detection
     // will be handled by CollisionSystem
     return false;
   }
   
-  distanceToNearestObstacle(position, direction) {
+  // eslint-disable-next-line no-unused-vars
+  distanceToNearestObstacle(position) {
     // This is a placeholder - actual implementation
     // would calculate distance to nearest wall or trail
     return Math.random() * 10; // Random for now

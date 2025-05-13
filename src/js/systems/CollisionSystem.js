@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export class CollisionSystem {
   constructor() {
     this.IGNORE_RECENT_SEGMENTS = 5; // Don't check collision with the most recent segments

@@ -29,4 +29,4 @@ export const CONFIG = {
   CAMERA_HEIGHT: 3,
   CAMERA_DISTANCE: 5,
   LOOK_AHEAD_DISTANCE: 10
-}
+};

@@ -60,16 +60,16 @@ export class GameEngine {
       if (this.gameOver) return;
       
       switch(key) {
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-          this.player.turnLeft();
-          break;
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-          this.player.turnRight();
-          break;
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        this.player.turnLeft();
+        break;
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        this.player.turnRight();
+        break;
       }
     });
     
@@ -241,12 +241,12 @@ export class GameEngine {
     
     // Check collisions
     if (this.collisionSystem.checkPlayerCollisions(this.player, this.ai, CONFIG.ARENA_SIZE)) {
-      this.endGame("Game Over: Player crashed!");
+      this.endGame('Game Over: Player crashed!');
       return;
     }
     
     if (this.collisionSystem.checkAICollisions(this.ai, this.player, CONFIG.ARENA_SIZE)) {
-      this.endGame("You Win: AI crashed!");
+      this.endGame('You Win: AI crashed!');
       return;
     }
     
