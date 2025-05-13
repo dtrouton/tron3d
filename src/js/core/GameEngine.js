@@ -43,7 +43,8 @@ export class GameEngine {
     
     // Initialize entities
     this.player = new Player(this.scene, CONFIG.PLAYER_START_POSITION);
-    this.ai = new AI(this.scene, CONFIG.AI_START_POSITION);
+    // Initialize AI with references to player and collision system for better decision making
+    this.ai = new AI(this.scene, CONFIG.AI_START_POSITION, this.player, this.collisionSystem);
     
     // Set up event listeners
     this.setupEventListeners();
@@ -242,6 +243,12 @@ export class GameEngine {
     
     // Update entities
     this.player.update();
+    
+    // Allow AI to consider power-ups when making decisions
+    if (this.powerUps.length > 0 && Math.random() < 0.3) { // 30% chance to target power-ups
+      this.ai.targetPowerUp(this.powerUps);
+    }
+    
     this.ai.update();
     
     // Check collisions
@@ -269,7 +276,28 @@ export class GameEngine {
     // Periodically increase difficulty
     if (this.frameCount % CONFIG.DIFFICULTY_INCREASE_INTERVAL === 0) {
       this.difficulty += 0.1;
-      this.ai.setSpeed(CONFIG.BASE_AI_SPEED * this.difficulty);
+      
+      // Increase AI speed based on difficulty
+      this.ai.setSpeed(CONFIG.BASE_AI_SPEED * Math.min(2.0, this.difficulty));
+      
+      // Randomize AI personality for unpredictability
+      if (Math.random() < CONFIG.AI_PERSONALITY_SWITCH_CHANCE && this.difficulty > 1.5) {
+        const newPersonalityType = Math.floor(Math.random() * 3);
+        this.ai.personalityType = newPersonalityType;
+        this.ai.adjustPersonality();
+        
+        // Make AI more aggressive as difficulty increases
+        this.ai.aggressiveness = Math.min(
+          0.95, 
+          this.ai.aggressiveness + (CONFIG.AI_DIFFICULTY_SCALING * 0.1)
+        );
+        
+        // Improve AI's look-ahead capabilities as game progresses
+        this.ai.lookAheadDistance = Math.min(
+          25,
+          this.ai.lookAheadDistance + 1
+        );
+      }
     }
     
     // Periodically create power-ups (if fewer than 3 exist)

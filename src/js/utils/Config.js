@@ -13,6 +13,9 @@ export const CONFIG = {
   AI_START_POSITION: new THREE.Vector3(-25, 0.5, -25),
   AI_COLOR: 0xff0000,
   BASE_AI_SPEED: 0.3, // Increased to match player speed
+  AI_DIFFICULTY_SCALING: 0.15, // How much to increase AI capabilities per difficulty level
+  AI_PERSONALITY_SWITCH_CHANCE: 0.3, // Chance to switch personality mid-game for unpredictability
+  AI_POWERUP_AWARENESS: 0.7, // How aware AI is of power-ups (0-1)
   
   // Trail settings
   MAX_TRAIL_LENGTH: 300, // Reduced to improve performance
