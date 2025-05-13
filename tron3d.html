@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Tron Light Cycles</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+        }
+        #gameOverScreen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="scoreDisplay" style="position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 20px;">Score: 0</div>
+    <div id="gameOverScreen">
+        <h1>Game Over</h1>
+        <p id="winnerText"></p>
+        <p>Press Space to Restart</p>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Game state
+        const arenaSize = 100;
+        let playerDirection = new THREE.Vector3(1, 0, 0);
+        let aiDirection = new THREE.Vector3(-1, 0, 0);
+        const speed = 0.4;
+        let playerTrail = [];
+        let aiTrail = [];
+        const maxTrailLength = 500;
+        let gameOver = false;
+        let score = 0;
+        let gameStarted = false;
+        let gameTime = 0;
+
+        // Arena setup
+        const gridHelper = new THREE.GridHelper(arenaSize, arenaSize);
+        scene.add(gridHelper);
+
+        // Add walls
+        const wallGeometry = new THREE.BoxGeometry(arenaSize, 10, 1); // Increased height to 10
+        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x0088ff });
+
+        const walls = [
+            new THREE.Mesh(wallGeometry, wallMaterial),
+            new THREE.Mesh(wallGeometry, wallMaterial),
+            new THREE.Mesh(wallGeometry, wallMaterial),
+            new THREE.Mesh(wallGeometry, wallMaterial)
+        ];
+
+        walls[0].position.set(0, 5, arenaSize / 2); // Adjusted y-position to half the wall height
+        walls[1].position.set(0, 5, -arenaSize / 2);
+        walls[2].position.set(arenaSize / 2, 5, 0);
+        walls[2].rotation.y = Math.PI / 2;
+        walls[3].position.set(-arenaSize / 2, 5, 0);
+        walls[3].rotation.y = Math.PI / 2;
+
+        walls.forEach(wall => scene.add(wall));
+
+        // Light cycle setup
+        const cycleGeometry = new THREE.BoxGeometry(2, 1, 4);
+        const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x008800 });
+        const aiMaterial = new THREE.MeshBasicMaterial({ color: 0x880000 });
+        const playerCycle = new THREE.Mesh(cycleGeometry, playerMaterial);
+        const aiCycle = new THREE.Mesh(cycleGeometry, aiMaterial);
+
+        playerCycle.position.set(arenaSize / 4, 0.5, arenaSize / 4);
+        aiCycle.position.set(-arenaSize / 4, 0.5, -arenaSize / 4);
+
+        // Set initial orientation for player's bike
+        playerCycle.rotation.y = Math.atan2(playerDirection.x, playerDirection.z);
+
+        scene.add(playerCycle);
+        scene.add(aiCycle);
+
+        // Light trail setup
+        const trailGeometry = new THREE.BoxGeometry(0.5, 1, 0.5); // Doubled the height to 1
+        const playerTrailMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.7 });
+        const aiTrailMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.7 });
+
+        // Controls
+        document.addEventListener('keydown', (event) => {
+            if (gameOver) return;
+            switch(event.key) {
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    turnLeft();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    turnRight();
+                    break;
+            }
+        });
+
+        function turnLeft() {
+            playerDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+            snapToGrid(playerCycle, playerDirection);
+        }
+
+        function turnRight() {
+            playerDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+            snapToGrid(playerCycle, playerDirection);
+        }
+
+        function snapToGrid(cycle, direction) {
+            cycle.position.x = Math.round(cycle.position.x);
+            cycle.position.z = Math.round(cycle.position.z);
+            cycle.rotation.y = Math.atan2(direction.x, direction.z);
+        }
+
+        // Trail creation
+        function createTrailSegment(position, material) {
+            const segment = new THREE.Mesh(trailGeometry, material);
+            segment.position.copy(position);
+            segment.position.y = 0.75; // Raised to 0.75 (0.5 + half of the new height)
+            scene.add(segment);
+            return segment;
+        }
+
+        // AI movement
+        function moveAI() {
+            console.log(`AI movement start: position ${aiCycle.position.toArray()}, direction ${aiDirection.toArray()}`);
+
+            const possibleDirections = [
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 1),
+                new THREE.Vector3(0, 0, -1)
+            ];
+
+            let bestDirection = null;
+            let maxDistance = -1;
+
+            for (let direction of possibleDirections) {
+                if (direction.equals(aiDirection.clone().negate())) continue; // Don't allow 180-degree turns
+
+                const newPosition = aiCycle.position.clone().add(direction.clone().multiplyScalar(speed));
+                
+                if (checkWallCollision(newPosition)) {
+                    console.log(`Wall collision detected for direction ${direction.toArray()}`);
+                    continue; // Immediately discard directions that lead to wall collisions
+                }
+
+                // Ignore more recent trail segments at the start of the game
+                const ignoreRecent = Math.max(3, 10 - Math.floor(gameTime / 30));
+
+                if (checkCollision(newPosition, playerTrail) || 
+                    checkCollision(newPosition, aiTrail, ignoreRecent)) {
+                    console.log(`Trail collision detected for direction ${direction.toArray()}`);
+                    continue; // Skip this direction if it leads to immediate collision with trails
+                }
+
+                // Calculate distance to nearest obstacle
+                const distance = distanceToNearestObstacle(newPosition, direction);
+
+                console.log(`Direction ${direction.toArray()} has distance ${distance}`);
+
+                if (distance > maxDistance) {
+                    maxDistance = distance;
+                    bestDirection = direction;
+                }
+            }
+
+            if (bestDirection) {
+                console.log(`Chosen direction: ${bestDirection.toArray()}`);
+                aiDirection.copy(bestDirection);
+            } else {
+                console.log("No safe direction found");
+                // If no good direction is found, try to make a turn
+                const turnDirections = possibleDirections.filter(d => !d.equals(aiDirection) && !d.equals(aiDirection.clone().negate()));
+                for (let turnDirection of turnDirections) {
+                    const newPosition = aiCycle.position.clone().add(turnDirection.clone().multiplyScalar(speed));
+                    if (!checkWallCollision(newPosition) && 
+                        !checkCollision(newPosition, playerTrail) && 
+                        !checkCollision(newPosition, aiTrail, Math.max(3, 10 - Math.floor(gameTime / 30)))) {
+                        console.log(`Emergency turn direction: ${turnDirection.toArray()}`);
+                        aiDirection.copy(turnDirection);
+                        break;
+                    }
+                }
+            }
+
+            // Always move in the current direction
+            const newPosition = aiCycle.position.clone().add(aiDirection.clone().multiplyScalar(speed));
+            aiCycle.position.copy(newPosition);
+
+            console.log(`AI movement end: new position ${aiCycle.position.toArray()}, new direction ${aiDirection.toArray()}`);
+        }
+
+        function distanceToNearestObstacle(position, direction) {
+            let distance = 0;
+            const step = 1; // Check every unit of distance
+
+            while (distance < arenaSize / 2) { // Limit the look-ahead distance to half the arena size
+                distance += step;
+                const checkPosition = position.clone().add(direction.clone().multiplyScalar(distance));
+
+                if (checkWallCollision(checkPosition) ||
+                    checkCollision(checkPosition, playerTrail) || 
+                    checkCollision(checkPosition, aiTrail, Math.max(3, 10 - Math.floor(gameTime / 30)))) {
+                    return distance;
+                }
+            }
+
+            return distance;
+        }
+
+        function checkWallCollision(position) {
+            const margin = 1; // Add a safety margin
+            const halfArenaSize = arenaSize / 2 - margin;
+            return Math.abs(position.x) > halfArenaSize || Math.abs(position.z) > halfArenaSize;
+        }
+
+        // Collision detection
+        function checkCollision(position, trails, ignoreRecent = 3) {
+            if (trails.length <= 3) return false;  // Ignore collisions if trail is too short
+            for (let i = 0; i < trails.length - 3; i++) {
+                if (position.distanceTo(trails[i].position) < 0.75) {
+                    console.log(`Collision detected at trail segment ${i}`);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function endGame(message) {
+            console.log(message);
+            gameOver = true;
+            const winnerText = document.getElementById('winnerText');
+            if (winnerText) {
+                winnerText.textContent = `${message} Final Score: ${score}`;
+            }
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            if (gameOverScreen) {
+                gameOverScreen.style.display = 'flex';
+            }
+        }
+
+        // Add this new function to reset the game
+        function resetGame() {
+            // Reset positions
+            playerCycle.position.set(arenaSize / 4, 0.5, arenaSize / 4);
+            aiCycle.position.set(-arenaSize / 4, 0.5, -arenaSize / 4);
+
+            // Reset directions
+            playerDirection.set(1, 0, 0);
+            aiDirection.set(-1, 0, 0);
+
+            // Reset orientations
+            playerCycle.rotation.y = Math.atan2(playerDirection.x, playerDirection.z);
+            aiCycle.rotation.y = Math.atan2(aiDirection.x, aiDirection.z);
+
+            // Clear trails
+            playerTrail.forEach(segment => scene.remove(segment));
+            aiTrail.forEach(segment => scene.remove(segment));
+            playerTrail = [];
+            aiTrail = [];
+
+            // Reset colors
+            playerCycle.material.color.setHex(0x008800); // Darker green
+            aiCycle.material.color.setHex(0x880000); // Darker red
+
+            // Hide game over screen
+            document.getElementById('gameOverScreen').style.display = 'none';
+
+            // Reset game state
+            gameOver = false;
+            score = 0;
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            if (scoreDisplay) {
+                scoreDisplay.textContent = 'Score: 0';
+            }
+
+            gameStarted = false;
+            gameTime = 0;
+
+            // Delay game start
+            setTimeout(startGame, 1000);  // Start game after 1 second
+        }
+
+        // Add event listener for space bar to restart the game
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' && gameOver) {
+                resetGame();
+            }
+        });
+
+        // Update function
+        function update() {
+            if (gameOver || !gameStarted) return;
+
+            gameTime++;
+
+            console.log(`Frame ${gameTime}: Player pos: ${playerCycle.position.toArray()}, AI pos: ${aiCycle.position.toArray()}`);
+
+            const prevPlayerPos = playerCycle.position.clone();
+            const prevAIPos = aiCycle.position.clone();
+
+            playerCycle.position.add(playerDirection.clone().multiplyScalar(speed));
+            moveAI();
+
+            if (gameTime > 1) {  // Only add trail after first movement
+                playerTrail.push(createTrailSegment(prevPlayerPos, playerTrailMaterial));
+                aiTrail.push(createTrailSegment(prevAIPos, aiTrailMaterial));
+            }
+
+            console.log(`After movement: Player pos: ${playerCycle.position.toArray()}, AI pos: ${aiCycle.position.toArray()}`);
+            console.log(`Player trail length: ${playerTrail.length}, AI trail length: ${aiTrail.length}`);
+
+            if (playerTrail.length > maxTrailLength) {
+                const oldestSegment = playerTrail.shift();
+                scene.remove(oldestSegment);
+            }
+            if (aiTrail.length > maxTrailLength) {
+                const oldestSegment = aiTrail.shift();
+                scene.remove(oldestSegment);
+            }
+
+            if (checkCollision(playerCycle.position, aiTrail) || 
+                checkCollision(playerCycle.position, playerTrail)) {
+                console.log("Player collision detected");
+                endGame("Game Over: Player crashed into a trail!");
+            }
+            if (checkCollision(aiCycle.position, playerTrail) || 
+                checkCollision(aiCycle.position, aiTrail)) {
+                console.log("AI collision detected");
+                endGame("Game Over: AI crashed into a trail!");
+            }
+
+            if (checkWallCollision(playerCycle.position)) {
+                console.log("Player wall collision detected");
+                endGame("Game Over: Player crashed into wall!");
+                playerCycle.material.color.setHex(0xff0000);
+            }
+            if (checkWallCollision(aiCycle.position)) {
+                console.log("AI wall collision detected");
+                endGame("Game Over: AI crashed into wall!");
+                aiCycle.material.color.setHex(0xff0000);
+            }
+
+            // Increase score
+            score++;
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            if (scoreDisplay) {
+                scoreDisplay.textContent = `Score: ${score}`;
+            }
+        }
+
+        // Game loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!gameOver) {
+                update();
+
+                const cameraOffset = new THREE.Vector3(
+                    -playerDirection.x * 3,
+                    2,
+                    -playerDirection.z * 3
+                );
+                camera.position.copy(playerCycle.position).add(cameraOffset);
+                
+                const lookAtPoint = playerCycle.position.clone().add(playerDirection.clone().multiplyScalar(10));
+                camera.lookAt(lookAtPoint);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function startGame() {
+            console.log("Game started");
+            gameStarted = true;
+            gameTime = 0;
+            playerTrail = [];
+            aiTrail = [];
+        }
+
+        // Initial game start
+        setTimeout(startGame, 1000);  // Start game after 1 second
+
+        animate();
+    </script>
+</body>
+</html>
