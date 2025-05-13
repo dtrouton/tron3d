@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
+import { CONFIG } from '../utils/Config.js';
 
 export class AI extends Entity {
   constructor(scene, position) {
-    super(scene, position, 0xff0000);
-    this.baseSpeed = 0.1;
+    super(scene, position, CONFIG.AI_COLOR);
+    this.baseSpeed = CONFIG.BASE_AI_SPEED;
     this.speed = this.baseSpeed;
     this.defaultDirection = new THREE.Vector3(-1, 0, 0); // Initial direction
     this.direction.copy(this.defaultDirection);

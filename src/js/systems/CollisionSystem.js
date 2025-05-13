@@ -1,6 +1,9 @@
+import { CONFIG } from '../utils/Config.js';
+
 export class CollisionSystem {
   constructor() {
-    this.IGNORE_RECENT_SEGMENTS = 5; // Don't check collision with the most recent segments
+    // Using the config value for IGNORE_RECENT_SEGMENTS
+    this.IGNORE_RECENT_SEGMENTS = CONFIG.IGNORE_RECENT_SEGMENTS;
   }
   
   checkPlayerCollisions(player, ai, arenaSize) {
@@ -15,8 +18,12 @@ export class CollisionSystem {
     }
     
     // Check collision with own trail (excluding recent segments)
-    if (this.checkTrailCollision(player.position, player.trail.slice(0, -this.IGNORE_RECENT_SEGMENTS))) {
-      return true;
+    // Note: We slice from beginning of array up to (trail length - IGNORE_RECENT_SEGMENTS)
+    // This ensures we don't check collision with the most recent segments
+    if (player.trail.length > this.IGNORE_RECENT_SEGMENTS) {
+      if (this.checkTrailCollision(player.position, player.trail.slice(0, -this.IGNORE_RECENT_SEGMENTS))) {
+        return true;
+      }
     }
     
     return false;
@@ -34,8 +41,10 @@ export class CollisionSystem {
     }
     
     // Check collision with own trail (excluding recent segments)
-    if (this.checkTrailCollision(ai.position, ai.trail.slice(0, -this.IGNORE_RECENT_SEGMENTS))) {
-      return true;
+    if (ai.trail.length > this.IGNORE_RECENT_SEGMENTS) {
+      if (this.checkTrailCollision(ai.position, ai.trail.slice(0, -this.IGNORE_RECENT_SEGMENTS))) {
+        return true;
+      }
     }
     
     return false;
@@ -54,8 +63,11 @@ export class CollisionSystem {
   checkTrailCollision(position, trail) {
     if (!trail || trail.length <= 3) return false; // Ignore if trail is too short
     
+    // Use the config collision threshold
+    const collisionThreshold = CONFIG.COLLISION_THRESHOLD;
+    
     for (let i = 0; i < trail.length; i++) {
-      if (position.distanceTo(trail[i].position) < 0.75) {
+      if (position.distanceTo(trail[i].position) < collisionThreshold) {
         return true;
       }
     }

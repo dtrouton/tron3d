@@ -235,17 +235,26 @@ export class GameEngine {
     
     this.gameTime++;
     
+    // Performance optimization: Skip frames if needed
+    // This helps maintain a consistent game speed on slower devices
+    const skipFrames = false; // Set to true for lower-end devices
+    if (skipFrames && this.gameTime % 2 !== 0) return;
+    
     // Update entities
     this.player.update();
     this.ai.update();
     
     // Check collisions
     if (this.collisionSystem.checkPlayerCollisions(this.player, this.ai, CONFIG.ARENA_SIZE)) {
+      // Show explosion effect at collision point
+      this.renderSystem.createExplosion(this.player.position);
       this.endGame('Game Over: Player crashed!');
       return;
     }
     
     if (this.collisionSystem.checkAICollisions(this.ai, this.player, CONFIG.ARENA_SIZE)) {
+      // Show explosion effect at collision point
+      this.renderSystem.createExplosion(this.ai.position);
       this.endGame('You Win: AI crashed!');
       return;
     }
@@ -258,43 +267,65 @@ export class GameEngine {
     this.uiManager.updateScore(this.score);
     
     // Periodically increase difficulty
-    if (this.frameCount % 600 === 0) {
+    if (this.frameCount % CONFIG.DIFFICULTY_INCREASE_INTERVAL === 0) {
       this.difficulty += 0.1;
       this.ai.setSpeed(CONFIG.BASE_AI_SPEED * this.difficulty);
     }
     
-    // Periodically create power-ups
-    if (this.frameCount % 300 === 0) {
+    // Periodically create power-ups (if fewer than 3 exist)
+    if (this.frameCount % CONFIG.POWER_UP_SPAWN_INTERVAL === 0 && this.powerUps.length < 3) {
       this.createPowerUp();
     }
     
     this.frameCount++;
     
-    // Update minimap
-    this.uiManager.updateMinimap(
-      this.player.position, 
-      this.ai.position, 
-      this.player.trail, 
-      this.ai.trail,
-      CONFIG.ARENA_SIZE
-    );
+    // Update minimap - only refresh every few frames for performance
+    if (this.frameCount % 3 === 0) {
+      this.uiManager.updateMinimap(
+        this.player.position, 
+        this.ai.position, 
+        this.player.trail, 
+        this.ai.trail,
+        CONFIG.ARENA_SIZE
+      );
+    }
   }
   
   createPowerUp() {
-    const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+    // Create a larger, more visible power-up
+    const geometry = new THREE.SphereGeometry(1.0, 16, 16); // Larger with fewer segments for performance
     const material = new THREE.MeshStandardMaterial({ 
       color: 0xffff00, 
-      emissive: 0xffff00 
+      emissive: 0xffff00,
+      metalness: 0.7,
+      roughness: 0.3
     });
     
     const powerUp = new THREE.Mesh(geometry, material);
     const arenaSize = CONFIG.ARENA_SIZE;
     
+    // Make sure power-ups don't spawn too close to the walls
+    const safeZone = arenaSize / 2 - 5;
     powerUp.position.set(
-      Math.random() * arenaSize - arenaSize / 2,
-      0.5,
-      Math.random() * arenaSize - arenaSize / 2
+      (Math.random() * 2 - 1) * safeZone, // Range from -safeZone to safeZone
+      1.0,  // Slightly higher off the ground for visibility
+      (Math.random() * 2 - 1) * safeZone
     );
+    
+    // Add animation for the power-up (floating effect)
+    const animate = () => {
+      if (!powerUp || !this.scene.children.includes(powerUp)) return;
+      
+      // Gentle floating motion
+      powerUp.position.y = 1.0 + Math.sin(Date.now() * 0.002) * 0.3;
+      
+      // Slow rotation
+      powerUp.rotation.y += 0.01;
+      
+      requestAnimationFrame(animate);
+    };
+    
+    animate();
     
     this.scene.add(powerUp);
     this.powerUps.push(powerUp);
@@ -318,10 +349,15 @@ export class GameEngine {
     if (this.gameStarted && !this.gameOver) {
       this.update();
       
-      // Update camera position relative to player
+      // Update camera position relative to player using the camera settings from config
       this.renderSystem.updateCamera(
         this.player.position,
-        this.player.direction
+        this.player.direction,
+        {
+          height: CONFIG.CAMERA_HEIGHT,
+          distance: CONFIG.CAMERA_DISTANCE,
+          lookAhead: CONFIG.LOOK_AHEAD_DISTANCE
+        }
       );
     }
     
