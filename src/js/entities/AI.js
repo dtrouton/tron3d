@@ -37,27 +37,27 @@ export class AI extends Entity {
   adjustPersonality() {
     // Apply personality traits based on type
     switch (this.personalityType) {
-      case 0: // Cautious
-        this.aggressiveness = 0.2;
-        this.caution = 0.9;
-        this.targetingWeight = 0.3;
-        this.directionChangeFrequency = 20;
-        this.lookAheadDistance = 15;
-        break;
-      case 1: // Balanced
-        this.aggressiveness = 0.5;
-        this.caution = 0.5;
-        this.targetingWeight = 0.5;
-        this.directionChangeFrequency = 30;
-        this.lookAheadDistance = 10;
-        break;
-      case 2: // Aggressive
-        this.aggressiveness = 0.8;
-        this.caution = 0.3;
-        this.targetingWeight = 0.7;
-        this.directionChangeFrequency = 15;
-        this.lookAheadDistance = 8;
-        break;
+    case 0: // Cautious
+      this.aggressiveness = 0.2;
+      this.caution = 0.9;
+      this.targetingWeight = 0.3;
+      this.directionChangeFrequency = 20;
+      this.lookAheadDistance = 15;
+      break;
+    case 1: // Balanced
+      this.aggressiveness = 0.5;
+      this.caution = 0.5;
+      this.targetingWeight = 0.5;
+      this.directionChangeFrequency = 30;
+      this.lookAheadDistance = 10;
+      break;
+    case 2: // Aggressive
+      this.aggressiveness = 0.8;
+      this.caution = 0.3;
+      this.targetingWeight = 0.7;
+      this.directionChangeFrequency = 15;
+      this.lookAheadDistance = 8;
+      break;
     }
   }
   
